@@ -1,0 +1,43 @@
+# virtual environment
+venv/
+env/
+.venv/
+
+# environment variables
+.env
+.env.*
+
+# python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ide
+.vscode/
+.idea/
+
+# os files
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+
+# build files
+build/
+dist/
+*.egg-info/
+
+# jupyter
+.ipynb_checkpoints/
+
+# secrets
+*.pem
+*.key
+
+.claude/

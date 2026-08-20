@@ -1,0 +1,13 @@
+langchain
+langchain-core
+langgraph
+langchain-google-genai
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+email-validator
+sqlalchemy
+pyjwt
+streamlit
+requests
