@@ -80,6 +80,23 @@ def build_agent(customer_id: str):
     return graph.compile()
 
 
+def _content_to_text(content) -> str:
+    """
+    Newer Gemini integrations return message content as a list of blocks
+    ({"type": "text", "text": ...}, plus signature/thinking blocks) rather
+    than a plain string. Keep only the text so it can be stored and shown.
+    """
+    if isinstance(content, str):
+        return content
+    parts = []
+    for block in content or []:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(block.get("text", ""))
+    return "".join(parts)
+
+
 def run_agent(customer_id: str, user_message: str, history: list[dict] | None = None):
     """
     Run one turn of the agent for a customer.
@@ -114,7 +131,7 @@ def run_agent(customer_id: str, user_message: str, history: list[dict] | None = 
             for tc in m.tool_calls:
                 tool_trace.append(tc["name"])
 
-    final_response = result_messages[-1].content
+    final_response = _content_to_text(result_messages[-1].content)
 
     return {
         "response": final_response,
