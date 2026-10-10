@@ -182,42 +182,54 @@ erDiagram
     ORDERS ||--o{ TICKETS : "about"
     CONVERSATIONS ||--o{ MESSAGES : contains
 
-    CUSTOMERS { string customer_id PK
-                string name
-                string email UK
-                string password_hash
-                datetime created_at }
-    ORDERS { string order_id PK
-             string customer_id FK
-             json items
-             float total
-             string status
-             datetime placed_at }
-    SHIPMENTS { string order_id PK
-                string carrier
-                string tracking_number
-                string status
-                datetime eta
-                datetime last_update
-                json history }
-    TICKETS { string ticket_id PK
-              string customer_id FK
-              string order_id FK
-              string subject
-              text description
-              string priority
-              string status
-              datetime created_at }
-    CONVERSATIONS { int id PK
-                    string customer_id FK
-                    string title
-                    datetime created_at }
-    MESSAGES { int id PK
-               int conversation_id FK
-               string role
-               text content
-               json tool_trace
-               datetime created_at }
+    CUSTOMERS {
+        string customer_id PK
+        string name
+        string email UK
+        string password_hash
+        datetime created_at
+    }
+    ORDERS {
+        string order_id PK
+        string customer_id FK
+        json items
+        float total
+        string status
+        datetime placed_at
+    }
+    SHIPMENTS {
+        string order_id PK
+        string carrier
+        string tracking_number
+        string status
+        datetime eta
+        datetime last_update
+        json history
+    }
+    TICKETS {
+        string ticket_id PK
+        string customer_id FK
+        string order_id FK
+        string subject
+        text description
+        string priority
+        string status
+        datetime created_at
+    }
+    CONVERSATIONS {
+        int id PK
+        string customer_id FK
+        string title
+        datetime created_at
+    }
+    MESSAGES {
+        int id PK
+        int conversation_id FK
+        string role
+        text content
+        json tool_trace
+        datetime created_at
+    }
 ```
 
 Order statuses: `PROCESSING`, `SHIPPED`, `DELIVERED`, `CANCELLED`.
