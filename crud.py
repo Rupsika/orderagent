@@ -7,13 +7,14 @@ function opens its own short-lived session — fine for SQLite + this
 request volume.
 """
 
-import itertools
 from datetime import datetime, timezone
 
-from db import get_session, Customer, Order, Shipment, Ticket, Conversation, Message
-from security import hash_password, verify_password
+from sqlalchemy.exc import IntegrityError
 
-_ticket_ids = itertools.count(1025)
+from db import get_session, Customer, Order, Shipment, Ticket, Conversation, Message
+from security import hash_password, verify_password, needs_rehash
+
+FIRST_TICKET_NUMBER = 1025
 
 
 def _order_to_dict(o: Order):
@@ -82,6 +83,10 @@ def authenticate(email: str, password: str):
         c = s.query(Customer).filter(Customer.email == email).first()
         if not c or not verify_password(password, c.password_hash):
             return None
+        if needs_rehash(c.password_hash):
+            # Transparently upgrade old hashes on successful login.
+            c.password_hash = hash_password(password)
+            s.commit()
         return {"customer_id": c.customer_id, "name": c.name, "email": c.email}
 
 
@@ -119,21 +124,36 @@ def get_tickets_for_customer(customer_id: str):
         return [_ticket_to_dict(t) for t in rows]
 
 
+def _next_ticket_id(s) -> str:
+    # Derive the next id from what's already stored, so it survives restarts.
+    numbers = [
+        int(tid[1:]) for (tid,) in s.query(Ticket.ticket_id).all()
+        if tid.startswith("T") and tid[1:].isdigit()
+    ]
+    return f"T{max(numbers, default=FIRST_TICKET_NUMBER - 1) + 1}"
+
+
 def create_ticket(customer_id: str, order_id: str, subject: str, description: str, priority: str = "MEDIUM"):
-    with get_session() as s:
-        ticket_id = f"T{next(_ticket_ids)}"
-        t = Ticket(
-            ticket_id=ticket_id,
-            customer_id=customer_id,
-            order_id=order_id,
-            subject=subject,
-            description=description,
-            priority=priority,
-            status="OPEN",
-        )
-        s.add(t)
-        s.commit()
-        return _ticket_to_dict(t)
+    for _ in range(5):
+        with get_session() as s:
+            t = Ticket(
+                ticket_id=_next_ticket_id(s),
+                customer_id=customer_id,
+                order_id=order_id,
+                subject=subject,
+                description=description,
+                priority=priority,
+                status="OPEN",
+            )
+            s.add(t)
+            try:
+                s.commit()
+            except IntegrityError:
+                # Another request grabbed the same id; recompute and retry.
+                s.rollback()
+                continue
+            return _ticket_to_dict(t)
+    raise RuntimeError("Could not allocate a unique ticket id")
 
 
 def cancel_order(order_id: str):

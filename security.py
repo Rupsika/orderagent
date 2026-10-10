@@ -17,22 +17,44 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "60"))
 
-PBKDF2_ITERATIONS = 200_000
+# OWASP recommends 600,000 iterations for PBKDF2-HMAC-SHA256.
+PBKDF2_ITERATIONS = 600_000
+# Hashes created before the iteration count was stored ("salt$digest") used this.
+LEGACY_PBKDF2_ITERATIONS = 200_000
+HASH_SCHEME = "pbkdf2_sha256"
+
+
+def _pbkdf2(password: str, salt_hex: str, iterations: int) -> str:
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), iterations).hex()
 
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), PBKDF2_ITERATIONS)
-    return f"{salt}${digest.hex()}"
+    digest = _pbkdf2(password, salt, PBKDF2_ITERATIONS)
+    return f"{HASH_SCHEME}${PBKDF2_ITERATIONS}${salt}${digest}"
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    parts = password_hash.split("$")
     try:
-        salt, digest_hex = password_hash.split("$")
+        if len(parts) == 4 and parts[0] == HASH_SCHEME:
+            _, iterations, salt, digest_hex = parts
+            iterations = int(iterations)
+        elif len(parts) == 2:
+            salt, digest_hex = parts
+            iterations = LEGACY_PBKDF2_ITERATIONS
+        else:
+            return False
+        expected = _pbkdf2(password, salt, iterations)
     except ValueError:
         return False
-    expected = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), PBKDF2_ITERATIONS)
-    return hmac.compare_digest(expected.hex(), digest_hex)
+    return hmac.compare_digest(expected, digest_hex)
+
+
+def needs_rehash(password_hash: str) -> bool:
+    """True if the hash uses an older/weaker format and should be upgraded."""
+    parts = password_hash.split("$")
+    return not (len(parts) == 4 and parts[0] == HASH_SCHEME and parts[1] == str(PBKDF2_ITERATIONS))
 
 
 def create_access_token(customer_id: str) -> str:

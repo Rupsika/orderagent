@@ -6,6 +6,7 @@ env/
 # environment variables
 .env
 .env.*
+!.env.example
 
 # python cache
 __pycache__/
@@ -41,3 +42,5 @@ dist/
 *.key
 
 .claude/
+# local sqlite database (contains user data)
+*.db
